@@ -1,0 +1,152 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build (e.g. v1.0.0). Leave empty for a dry-run build without a GitHub release."
+        required: false
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  BINARY_NAME: starweld
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            archive: tar.gz
+            ext: ""
+
+          - name: linux-arm64
+            runner: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+            archive: tar.gz
+            ext: ""
+            cross: true
+
+          - name: windows-x64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive: zip
+            ext: .exe
+
+          - name: windows-arm64
+            runner: windows-latest
+            target: aarch64-pc-windows-msvc
+            archive: zip
+            ext: .exe
+
+          - name: macos-x64
+            runner: macos-13
+            target: x86_64-apple-darwin
+            archive: tar.gz
+            ext: ""
+
+          - name: macos-arm64
+            runner: macos-14
+            target: aarch64-apple-darwin
+            archive: tar.gz
+            ext: ""
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          ref="${{ inputs.tag || github.ref_name }}"
+          echo "version=${ref#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install musl-tools
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - name: Install cross
+        if: matrix.cross
+        run: cargo install cross --locked
+
+      - name: Build (cross)
+        if: matrix.cross
+        run: cross build --release --bin ${{ env.BINARY_NAME }} --target ${{ matrix.target }}
+
+      - name: Build (cargo)
+        if: "!matrix.cross"
+        run: cargo build --release --bin ${{ env.BINARY_NAME }} --target ${{ matrix.target }}
+
+      - name: Package (tar.gz)
+        if: matrix.archive == 'tar.gz'
+        shell: bash
+        run: |
+          staging="${{ env.BINARY_NAME }}-v${{ steps.version.outputs.version }}-${{ matrix.name }}"
+          mkdir -p "$staging"
+          cp "target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}${{ matrix.ext }}" "$staging/"
+          cp README.md LICENSE-MIT LICENSE-APACHE "$staging/" 2>/dev/null || true
+          tar czf "$staging.tar.gz" "$staging"
+          echo "ASSET=$staging.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Package (zip)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $staging = "${{ env.BINARY_NAME }}-v${{ steps.version.outputs.version }}-${{ matrix.name }}"
+          New-Item -ItemType Directory -Path $staging -Force
+          Copy-Item "target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}${{ matrix.ext }}" $staging
+          Copy-Item README.md, LICENSE-MIT, LICENSE-APACHE $staging -ErrorAction SilentlyContinue
+          Compress-Archive -Path $staging -DestinationPath "$staging.zip"
+          echo "ASSET=$staging.zip" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.BINARY_NAME }}-${{ matrix.name }}
+          path: ${{ env.ASSET }}
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Generate checksums
+        working-directory: artifacts
+        run: sha256sum starweld-* > checksums-sha256.txt
+
+      - name: Create release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          generate_release_notes: true
+          files: |
+            artifacts/*

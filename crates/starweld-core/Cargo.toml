@@ -1,0 +1,30 @@
+[package]
+name = "starweld-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Pure-Rust engine for inspecting, repairing, merging, flattening and compacting VHDX/AVHDX files."
+
+[dependencies]
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+serde = { workspace = true, optional = true }
+crc32c.workspace = true
+uuid.workspace = true
+byteorder.workspace = true
+tempfile.workspace = true
+zstd.workspace = true
+num_cpus.workspace = true
+bitvec.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+rustix = { workspace = true }
+
+[features]
+default = ["serde"]
+serde = ["dep:serde", "uuid/serde"]
+
+[dev-dependencies]
+tempfile.workspace = true

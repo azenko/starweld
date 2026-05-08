@@ -1,0 +1,37 @@
+# Build artifacts
+/target/
+**/*.rs.bk
+
+# Cargo
+Cargo.lock.bak
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.*.sw?
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*.directory
+
+# Temporary / backup
+*.tmp
+*.bak
+*.orig
+
+# VHDX test artifacts
+*.vhdx
+*.avhdx
+*.vhdx.tar.zst

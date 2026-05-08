@@ -1,0 +1,45 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/starweld-core",
+    "crates/starweld-cli",
+    "xtask",
+]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.78"
+license = "MIT OR Apache-2.0"
+authors = ["Asuka Zenko <contact@gungnirnet.eu>"]
+repository = "https://github.com/azenko/starweld"
+homepage = "https://github.com/azenko/starweld"
+description = "Pure-Rust VHDX/AVHDX inspection, repair, merge, flatten and compact tool. Made with love using Cursor."
+readme = "README.md"
+keywords = ["vhdx", "avhdx", "hyper-v", "virtualization", "disk-image"]
+categories = ["command-line-utilities", "filesystem", "virtualization"]
+
+[workspace.dependencies]
+anyhow = "1.0"
+thiserror = "1.0"
+clap = { version = "4.5", features = ["derive", "wrap_help"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+crc32c = "0.6"
+uuid = { version = "1.10", features = ["v4", "serde"] }
+byteorder = "1.5"
+tempfile = "3.10"
+indicatif = "0.17"
+zstd = { version = "0.13", features = ["zstdmt"] }
+num_cpus = "1.16"
+bitvec = "1.0"
+rustix = { version = "1", features = ["fs"], default-features = false }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "abort"

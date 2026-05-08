@@ -1,0 +1,10 @@
+[alias]
+xtask = "run --package xtask --release --quiet --"
+
+# Static CRT for Windows/MSVC builds when invoked directly with `cargo build`.
+# (Cross builds via `cross` use a containerized toolchain instead.)
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.x86_64-unknown-linux-musl]
+rustflags = ["-C", "target-feature=+crt-static"]
